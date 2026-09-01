@@ -34,3 +34,23 @@ Automaticky dopočítaná pole:
 
 Šablona je v `templates/anc_sablona.xls`. Vygenerované faktury v `data/` nejsou verzované
 v gitu (obsahují reálné fakturační údaje) — pokud je chceš mít v repozitáři, uprav `.gitignore`.
+
+### Odeslání faktury emailem
+
+```
+uv run send_invoice.py <mesic 1-12> [--rok ROK]
+```
+
+Faktura musí už existovat v `data/` (spusť nejdřív `create_invoice.py`). Skript ji převede
+na PDF (`data/anc_{cislo}.pdf`) a pošle emailem z `petr@anchoice.cz` na `erbenpet@gmail.com`.
+
+Potřebuje SMTP údaje v `.env` v kořeni repozitáře (zkopíruj `.env.example` a vyplň):
+
+```
+SMTP_HOST=...
+SMTP_PORT=587
+SMTP_USER=petr@anchoice.cz
+SMTP_PASS=...
+```
+
+`.env` je v `.gitignore`, takže se do repozitáře nedostane.
