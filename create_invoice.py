@@ -1,14 +1,16 @@
-"""Vygeneruje novou fakturu ze sablony pro dany mesic.
+"""Vygeneruje novou fakturu ze sablony pro dany mesic a nahraje ji na Google Drive.
 
 Pouziti:
-    uv run create_invoice.py <mesic 1-12> [--rok ROK]
+    uv run create_invoice.py <mesic 1-12> [--rok ROK] [--prepsat]
 
 Priklad:
     uv run create_invoice.py 1
     -> vytvori data/anc_2026001.xls (faktura za prosinec 2025, splatnost 15.1.2026)
+    -> zkopiruje ji do "H:\\My Drive\\Work\\Petr Erben\\Faktury\\2026"
 """
 
 import argparse
+import shutil
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -18,6 +20,7 @@ import win32com.client as win32
 ROOT = Path(__file__).parent
 TEMPLATE = ROOT / "templates" / "anc_sablona.xls"
 OUTPUT_DIR = ROOT / "data"
+DRIVE_FAKTURY_DIR = Path(r"H:\My Drive\Work\Petr Erben\Faktury")
 
 MESICE = {
     1: "leden", 2: "únor", 3: "březen", 4: "duben", 5: "květen", 6: "červen",
@@ -32,6 +35,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Vytvori novou fakturu ze sablony.")
     parser.add_argument("mesic", type=int, choices=range(1, 13), help="cislo mesice 1-12")
     parser.add_argument("--rok", type=int, default=date.today().year, help="rok faktury (vychozi: aktualni rok)")
+    parser.add_argument("--prepsat", action="store_true", help="prepsat existujici fakturu na Google Drive")
     return parser.parse_args()
 
 
@@ -89,10 +93,22 @@ def build_invoice(mesic: int, rok: int):
     return output_path, cislo
 
 
+def copy_to_drive(output_path: Path, rok: int, force: bool) -> Path:
+    drive_dir = DRIVE_FAKTURY_DIR / str(rok)
+    drive_dir.mkdir(parents=True, exist_ok=True)
+    drive_path = drive_dir / output_path.name
+    if drive_path.exists() and not force:
+        sys.exit(f"Faktura uz na Google Drive existuje, nic jsem neprepsal: {drive_path}\n(pouzij --prepsat pro prepsani)")
+    shutil.copy2(output_path, drive_path)
+    return drive_path
+
+
 def main():
     args = parse_args()
     output_path, cislo = build_invoice(args.mesic, args.rok)
     print(f"Vytvorena faktura {cislo}: {output_path}")
+    drive_path = copy_to_drive(output_path, args.rok, args.prepsat)
+    print(f"Nahrano na Google Drive: {drive_path}")
 
 
 if __name__ == "__main__":

@@ -11,7 +11,7 @@ Skript pro generování měsíčních faktur AnChoice ze šablony v Excelu.
 ## Použití
 
 ```
-uv run create_invoice.py <mesic 1-12> [--rok ROK]
+uv run create_invoice.py <mesic 1-12> [--rok ROK] [--prepsat]
 ```
 
 Příklad — faktura za srpen, splatná v září:
@@ -20,8 +20,11 @@ Příklad — faktura za srpen, splatná v září:
 uv run create_invoice.py 9
 ```
 
-Vytvoří se `data/anc_{rok}{mesic:03d}.xls`, např. `data/anc_2026009.xls`, s automaticky
-dopočítanými poli:
+Vytvoří se `data/anc_{rok}{mesic:03d}.xls`, např. `data/anc_2026009.xls`, a zkopíruje se do
+`H:\My Drive\Work\Petr Erben\Faktury\{rok}`. Pokud tam faktura se stejným názvem už existuje,
+skript ji nepřepíše (pro přepsání použij `--prepsat`).
+
+Automaticky dopočítaná pole:
 
 - **číslo faktury / variabilní symbol**: `{rok}{mesic:03d}`
 - **datum vystavení**: dnešní datum
