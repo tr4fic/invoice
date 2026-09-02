@@ -8,7 +8,9 @@ SMTP udaje se nastavuji v .env (viz .env.example).
 """
 
 import argparse
+import imaplib
 import os
+import re
 import smtplib
 import sys
 from datetime import date
@@ -22,7 +24,7 @@ from create_invoice import MESICE, OUTPUT_DIR, last_day_of_previous_month
 
 ROOT = Path(__file__).parent
 ODESILATEL = "petr@anchoice.cz"
-PRIJEMCE = "erbenpet@gmail.com"
+PRIJEMCE = "martin@anchoice.cz"
 
 
 def parse_args():
@@ -68,24 +70,54 @@ def build_email(nazev_mesice: str, rok: int, pdf_path: Path) -> EmailMessage:
     return msg
 
 
-def send_email(msg: EmailMessage):
+def load_config() -> dict:
     load_dotenv(ROOT / ".env")
-    host = os.environ.get("SMTP_HOST")
-    port = os.environ.get("SMTP_PORT")
-    user = os.environ.get("SMTP_USER")
-    password = os.environ.get("SMTP_PASS")
-    if not all([host, port, user, password]):
+    cfg = {
+        "smtp_host": os.environ.get("SMTP_HOST"),
+        "smtp_port": os.environ.get("SMTP_PORT"),
+        "user": os.environ.get("SMTP_USER"),
+        "password": os.environ.get("SMTP_PASS"),
+        "imap_host": os.environ.get("IMAP_HOST"),
+        "imap_port": os.environ.get("IMAP_PORT"),
+    }
+    if not all([cfg["smtp_host"], cfg["smtp_port"], cfg["user"], cfg["password"]]):
         sys.exit(
             "Chybi SMTP nastaveni. Vyplň .env v korenu repozitare podle .env.example:\n"
             "SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS"
         )
-    port = int(port)
+    return cfg
+
+
+def send_email(msg: EmailMessage, cfg: dict):
+    port = int(cfg["smtp_port"])
     smtp_class = smtplib.SMTP_SSL if port == 465 else smtplib.SMTP
-    with smtp_class(host, port) as smtp:
+    with smtp_class(cfg["smtp_host"], port) as smtp:
         if port != 465:
             smtp.starttls()
-        smtp.login(user, password)
+        smtp.login(cfg["user"], cfg["password"])
         smtp.send_message(msg)
+
+
+def append_to_sent(msg: EmailMessage, cfg: dict):
+    """Ulozi kopii odeslaneho emailu do slozky Odeslane, aby se objevila v Outlooku."""
+    if not cfg["imap_host"] or not cfg["imap_port"]:
+        return
+    imap = imaplib.IMAP4_SSL(cfg["imap_host"], int(cfg["imap_port"]))
+    try:
+        imap.login(cfg["user"], cfg["password"])
+        typ, folders = imap.list()
+        sent_folder = "Sent"
+        if typ == "OK":
+            for line in folders:
+                text = line.decode(errors="ignore")
+                if "\\Sent" in text:
+                    match = re.search(r'"\." "?([^"\r\n]+)"?$', text)
+                    if match:
+                        sent_folder = match.group(1)
+                    break
+        imap.append(sent_folder, "\\Seen", None, msg.as_bytes())
+    finally:
+        imap.logout()
 
 
 def main():
@@ -102,9 +134,12 @@ def main():
     pdf_path = xls_to_pdf(xls_path)
     print(f"Vytvoreno PDF: {pdf_path}")
 
+    cfg = load_config()
     msg = build_email(nazev_mesice, rok_mesice, pdf_path)
-    send_email(msg)
+    send_email(msg, cfg)
     print(f"Email odeslan na {PRIJEMCE}")
+    append_to_sent(msg, cfg)
+    print("Kopie ulozena do Odeslane posty")
 
 
 if __name__ == "__main__":

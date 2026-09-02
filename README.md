@@ -42,15 +42,23 @@ uv run send_invoice.py <mesic 1-12> [--rok ROK]
 ```
 
 Faktura musí už existovat v `data/` (spusť nejdřív `create_invoice.py`). Skript ji převede
-na PDF (`data/anc_{cislo}.pdf`) a pošle emailem z `petr@anchoice.cz` na `erbenpet@gmail.com`.
+na PDF (`data/anc_{cislo}.pdf`) a pošle emailem z `petr@anchoice.cz` na `martin@anchoice.cz`.
 
-Potřebuje SMTP údaje v `.env` v kořeni repozitáře (zkopíruj `.env.example` a vyplň):
+Potřebuje SMTP (odeslání) a IMAP (uložení kopie do Odeslané pošty) údaje v `.env`
+v kořeni repozitáře (zkopíruj `.env.example` a vyplň):
 
 ```
 SMTP_HOST=...
 SMTP_PORT=587
 SMTP_USER=petr@anchoice.cz
 SMTP_PASS=...
+IMAP_HOST=...
+IMAP_PORT=993
 ```
+
+Po odeslání skript uloží kopii emailu i do IMAP složky s příznakem `\Sent` (u
+`mailserver.anchoice.cz` je to `Sent`), takže se objeví v Outlooku ve složce Odeslané
+zprávy, i když email posílá napřímo přes SMTP, ne přes Outlook. Pokud `IMAP_HOST`
+v `.env` chybí, tento krok se přeskočí.
 
 `.env` je v `.gitignore`, takže se do repozitáře nedostane.
