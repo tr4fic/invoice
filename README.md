@@ -42,10 +42,12 @@ uv run send_invoice.py <mesic 1-12> [--rok ROK]
 ```
 
 Faktura musí už existovat v `data/` (spusť nejdřív `create_invoice.py`). Skript ji převede
-na PDF (`data/anc_{cislo}.pdf`) a pošle emailem z `petr@anchoice.cz` na `martin@anchoice.cz`.
+na PDF (`data/anc_{cislo}.pdf`) a pošle dva emaily:
 
-Potřebuje SMTP (odeslání) a IMAP (uložení kopie do Odeslané pošty) údaje v `.env`
-v kořeni repozitáře (zkopíruj `.env.example` a vyplň):
+1. z `petr@anchoice.cz` na `martin@anchoice.cz` (přes firemní SMTP/IMAP)
+2. z `erbenpet@gmail.com` na `vnetik@deok.cz` (přes Gmail SMTP)
+
+Potřebuje údaje v `.env` v kořeni repozitáře (zkopíruj `.env.example` a vyplň):
 
 ```
 SMTP_HOST=...
@@ -54,11 +56,15 @@ SMTP_USER=petr@anchoice.cz
 SMTP_PASS=...
 IMAP_HOST=...
 IMAP_PORT=993
+GMAIL_APP_PASSWORD=...
 ```
 
-Po odeslání skript uloží kopii emailu i do IMAP složky s příznakem `\Sent` (u
+`GMAIL_APP_PASSWORD` je app heslo pro `erbenpet@gmail.com` (Google Account → Security →
+App passwords, vyžaduje zapnuté dvoufázové ověření).
+
+Po odeslání prvního emailu skript uloží jeho kopii i do IMAP složky s příznakem `\Sent` (u
 `mailserver.anchoice.cz` je to `Sent`), takže se objeví v Outlooku ve složce Odeslané
 zprávy, i když email posílá napřímo přes SMTP, ne přes Outlook. Pokud `IMAP_HOST`
-v `.env` chybí, tento krok se přeskočí.
+v `.env` chybí, tento krok se přeskočí. Gmail si kopii do Odeslané pošty ukládá sám.
 
 `.env` je v `.gitignore`, takže se do repozitáře nedostane.

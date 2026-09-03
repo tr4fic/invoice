@@ -23,8 +23,12 @@ from dotenv import load_dotenv
 from create_invoice import MESICE, OUTPUT_DIR, last_day_of_previous_month
 
 ROOT = Path(__file__).parent
-ODESILATEL = "petr@anchoice.cz"
-PRIJEMCE = "martin@anchoice.cz"
+ODESILATEL_ANCHOICE = "petr@anchoice.cz"
+PRIJEMCE_ANCHOICE = "martin@anchoice.cz"
+ODESILATEL_GMAIL = "erbenpet@gmail.com"
+PRIJEMCE_GMAIL = "vnetik@deok.cz"
+GMAIL_SMTP_HOST = "smtp.gmail.com"
+GMAIL_SMTP_PORT = 587
 
 
 def parse_args():
@@ -49,11 +53,20 @@ def xls_to_pdf(xls_path: Path) -> Path:
     return pdf_path
 
 
-def build_email(nazev_mesice: str, rok: int, pdf_path: Path) -> EmailMessage:
+def _attach_pdf(msg: EmailMessage, pdf_path: Path):
+    msg.add_attachment(
+        pdf_path.read_bytes(),
+        maintype="application",
+        subtype="pdf",
+        filename=pdf_path.name,
+    )
+
+
+def build_email_anchoice(nazev_mesice: str, rok: int, pdf_path: Path) -> EmailMessage:
     rok_zkraceny = f"{rok % 100:02d}"
     msg = EmailMessage()
-    msg["From"] = ODESILATEL
-    msg["To"] = PRIJEMCE
+    msg["From"] = ODESILATEL_ANCHOICE
+    msg["To"] = PRIJEMCE_ANCHOICE
     msg["Subject"] = f"Petr - faktura - {nazev_mesice} {rok_zkraceny}"
     msg.set_content(
         "Dobrý den, pane Krčmáři,\n\n"
@@ -61,12 +74,22 @@ def build_email(nazev_mesice: str, rok: int, pdf_path: Path) -> EmailMessage:
         "Díky a přeji hezký den,\n"
         "Petr Erben"
     )
-    msg.add_attachment(
-        pdf_path.read_bytes(),
-        maintype="application",
-        subtype="pdf",
-        filename=pdf_path.name,
+    _attach_pdf(msg, pdf_path)
+    return msg
+
+
+def build_email_gmail(nazev_mesice: str, rok: int, pdf_path: Path) -> EmailMessage:
+    rok_zkraceny = f"{rok % 100:02d}"
+    msg = EmailMessage()
+    msg["From"] = ODESILATEL_GMAIL
+    msg["To"] = PRIJEMCE_GMAIL
+    msg["Subject"] = f"Erbi - faktura {nazev_mesice} {rok_zkraceny}"
+    msg.set_content(
+        "Ahoj Vaso, posilam fakturu za AnChoice.\n"
+        "Diky moc zpracovani.\n"
+        "Erbi"
     )
+    _attach_pdf(msg, pdf_path)
     return msg
 
 
@@ -79,22 +102,27 @@ def load_config() -> dict:
         "password": os.environ.get("SMTP_PASS"),
         "imap_host": os.environ.get("IMAP_HOST"),
         "imap_port": os.environ.get("IMAP_PORT"),
+        "gmail_app_password": os.environ.get("GMAIL_APP_PASSWORD"),
     }
     if not all([cfg["smtp_host"], cfg["smtp_port"], cfg["user"], cfg["password"]]):
         sys.exit(
             "Chybi SMTP nastaveni. Vyplň .env v korenu repozitare podle .env.example:\n"
             "SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS"
         )
+    if not cfg["gmail_app_password"]:
+        sys.exit(
+            "Chybi GMAIL_APP_PASSWORD v .env (app heslo pro erbenpet@gmail.com,\n"
+            "viz .env.example) -- potreba pro odeslani druheho emailu."
+        )
     return cfg
 
 
-def send_email(msg: EmailMessage, cfg: dict):
-    port = int(cfg["smtp_port"])
+def send_email(msg: EmailMessage, host: str, port: int, user: str, password: str):
     smtp_class = smtplib.SMTP_SSL if port == 465 else smtplib.SMTP
-    with smtp_class(cfg["smtp_host"], port) as smtp:
+    with smtp_class(host, port) as smtp:
         if port != 465:
             smtp.starttls()
-        smtp.login(cfg["user"], cfg["password"])
+        smtp.login(user, password)
         smtp.send_message(msg)
 
 
@@ -135,11 +163,16 @@ def main():
     print(f"Vytvoreno PDF: {pdf_path}")
 
     cfg = load_config()
-    msg = build_email(nazev_mesice, rok_mesice, pdf_path)
-    send_email(msg, cfg)
-    print(f"Email odeslan na {PRIJEMCE}")
-    append_to_sent(msg, cfg)
+
+    msg_anchoice = build_email_anchoice(nazev_mesice, rok_mesice, pdf_path)
+    send_email(msg_anchoice, cfg["smtp_host"], int(cfg["smtp_port"]), cfg["user"], cfg["password"])
+    print(f"Email odeslan na {PRIJEMCE_ANCHOICE}")
+    append_to_sent(msg_anchoice, cfg)
     print("Kopie ulozena do Odeslane posty")
+
+    msg_gmail = build_email_gmail(nazev_mesice, rok_mesice, pdf_path)
+    send_email(msg_gmail, GMAIL_SMTP_HOST, GMAIL_SMTP_PORT, ODESILATEL_GMAIL, cfg["gmail_app_password"])
+    print(f"Email odeslan na {PRIJEMCE_GMAIL}")
 
 
 if __name__ == "__main__":
