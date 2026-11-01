@@ -36,6 +36,7 @@ def parse_args():
     parser.add_argument("mesic", type=int, choices=range(1, 13), help="cislo mesice 1-12")
     parser.add_argument("--rok", type=int, default=date.today().year, help="rok faktury (vychozi: aktualni rok)")
     parser.add_argument("--prepsat", action="store_true", help="prepsat existujici fakturu na Google Drive")
+    parser.add_argument("--priplatek", type=int, default=0, help="jednorazova castka (Kc) pripocitana k programatorskym pracim")
     return parser.parse_args()
 
 
@@ -50,7 +51,7 @@ def excel_serial(d: date) -> int:
     return (d - EXCEL_EPOCH).days
 
 
-def build_invoice(mesic: int, rok: int):
+def build_invoice(mesic: int, rok: int, priplatek: int = 0):
     cislo = f"{rok}{mesic:03d}"
 
     datum_vystaveni = date.today()
@@ -66,7 +67,7 @@ def build_invoice(mesic: int, rok: int):
     OUTPUT_DIR.mkdir(exist_ok=True)
     output_path = OUTPUT_DIR / f"anc_{cislo}.xls"
 
-    excel = win32.gencache.EnsureDispatch("Excel.Application")
+    excel = win32.DispatchEx("Excel.Application")
     excel.Visible = False
     excel.DisplayAlerts = False
     try:
@@ -79,7 +80,7 @@ def build_invoice(mesic: int, rok: int):
         ws.Range("I18").Value = excel_serial(splatnost)
         ws.Range("E19").Value = int(cislo)
         ws.Range("C23").Value = f"Programátorské práce na programu Anchoice za {nazev_mesice} {rok_mesice}."
-        ws.Range("I23").Value = CASTKA_PROGRAMATOR
+        ws.Range("I23").Value = CASTKA_PROGRAMATOR + priplatek
         ws.Range("C24").Value = "Claude Pro"
         ws.Range("I24").Value = CASTKA_CLAUDE_PRO
 
@@ -105,7 +106,7 @@ def copy_to_drive(output_path: Path, rok: int, force: bool) -> Path:
 
 def main():
     args = parse_args()
-    output_path, cislo = build_invoice(args.mesic, args.rok)
+    output_path, cislo = build_invoice(args.mesic, args.rok, args.priplatek)
     print(f"Vytvorena faktura {cislo}: {output_path}")
     drive_path = copy_to_drive(output_path, args.rok, args.prepsat)
     print(f"Nahrano na Google Drive: {drive_path}")

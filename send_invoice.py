@@ -40,7 +40,7 @@ def parse_args():
 
 def xls_to_pdf(xls_path: Path) -> Path:
     pdf_path = xls_path.with_suffix(".pdf")
-    excel = win32.gencache.EnsureDispatch("Excel.Application")
+    excel = win32.DispatchEx("Excel.Application")
     excel.Visible = False
     excel.DisplayAlerts = False
     try:
